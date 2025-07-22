@@ -49,16 +49,16 @@ func TestNewSecret(t *testing.T) {
 
 	testCases := []struct {
 		name        string
-		envs        map[string]string
+		envs        Config
 		runFn       func()
 		expectedErr error
 	}{
 		{
 			name: "success to create",
-			envs: map[string]string{
-				"GCP_PROJECT_ID": "test-id",
-				"SECRET_NAME":    "test-name",
-				"SECRET_VERSION": "test-version",
+			envs: Config{
+				ProjectID:     "test-id",
+				SecretName:    "test-name",
+				SecretVersion: "test-version",
 			},
 			runFn: func() {
 				defaultClientFactory = func(ctx context.Context, opts ...option.ClientOption) (secretManagerClient, error) {
@@ -69,16 +69,16 @@ func TestNewSecret(t *testing.T) {
 		},
 		{
 			name: "fail to get GCP_Project_ID",
-			envs: map[string]string{},
+			envs: Config{},
 			expectedErr: ConfigError{
 				MissingField: "GCP_PROJECT_ID",
 			},
 		},
 		{
 			name: "fail to create secret manager client",
-			envs: map[string]string{
-				"GCP_PROJECT_ID": "test-id",
-				"SECRET_NAME":    "test-name",
+			envs: Config{
+				ProjectID:  "test-id",
+				SecretName: "test-name",
 			},
 			runFn: func() {
 				defaultClientFactory = func(ctx context.Context, opts ...option.ClientOption) (secretManagerClient, error) {
@@ -91,15 +91,11 @@ func TestNewSecret(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			for key, value := range tc.envs {
-				t.Setenv(key, value)
-			}
-
 			if tc.runFn != nil {
 				tc.runFn()
 			}
 
-			client, err := NewSecret(ctx)
+			client, err := NewSecret(ctx, tc.envs)
 			if tc.expectedErr != nil {
 				assert.Contains(t, err.Error(), tc.expectedErr.Error())
 			} else {

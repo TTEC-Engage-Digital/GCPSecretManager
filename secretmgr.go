@@ -99,43 +99,6 @@ func (e ParseError) Error() string {
 	return fmt.Sprintf("invalid format at line %d (%s): %s", e.LineNum, e.Line, e.Reason)
 }
 
-// NewConfig creates a new Config instance by reading required values
-// from environment variables. Returns an error if required variables
-// are missing.
-//
-// Returns:
-// - A pointer to a Config struct containing the configuration parameters.
-// - An error if any required environment variable is missing.
-func NewConfig() (*Config, error) {
-	// Retrieve and validate the GCP_PROJECT_ID environment variable.
-	// Returns an error if the variable is not set.
-	projectID := os.Getenv("GCP_PROJECT_ID")
-	if projectID == "" {
-		return nil, ConfigError{MissingField: "GCP_PROJECT_ID"}
-	}
-
-	// Retrieve and validate the SECRET_NAME environment variable.
-	// Returns an error if the variable is not set.
-	secretName := os.Getenv("SECRET_NAME")
-	if secretName == "" {
-		return nil, ConfigError{MissingField: "SECRET_NAME"}
-	}
-
-	// Retrieve the SECRET_VERSION environment variable.
-	// Default to "latest" if not specified.
-	secretVersion := os.Getenv("SECRET_VERSION")
-	if secretVersion == "" {
-		secretVersion = "latest"
-	}
-
-	// Create and return a new Config struct with the retrieved values.
-	return &Config{
-		ProjectID:     projectID,
-		SecretName:    secretName,
-		SecretVersion: secretVersion,
-	}, nil
-}
-
 // NewSecret initializes a new Secret Manager client with the provided context.
 // It creates the necessary configuration and establishes a connection to
 // Google Cloud Secret Manager.
@@ -146,12 +109,22 @@ func NewConfig() (*Config, error) {
 // Returns:
 // - A pointer to a Client struct representing the Secret Manager client.
 // - An error if the configuration creation or client initialization fails.
-func NewSecret(ctx context.Context) (*Client, error) {
+func NewSecret(ctx context.Context, config Config) (*Client, error) {
 	// Create a new Config instance by reading required values from environment variables.
 	// Returns an error if required variables are missing.
-	config, err := NewConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create config: %w", err)
+
+	if config.ProjectID == "" {
+		return nil, ConfigError{MissingField: "GCP_PROJECT_ID"}
+	}
+
+	// Retrieve and validate the SECRET_NAME environment variable.
+	// Returns an error if the variable is not set.
+	if config.SecretName == "" {
+		return nil, ConfigError{MissingField: "SECRET_NAME"}
+	}
+
+	if config.SecretVersion == "" {
+		config.SecretVersion = "latest"
 	}
 
 	// Initialize a new Secret Manager client with the provided context.
@@ -164,7 +137,7 @@ func NewSecret(ctx context.Context) (*Client, error) {
 	// Return a new Client struct with the initialized Secret Manager client and configuration.
 	return &Client{
 		client: client,
-		config: config,
+		config: &config,
 	}, nil
 }
 
